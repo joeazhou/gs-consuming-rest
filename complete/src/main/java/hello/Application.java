@@ -56,7 +56,24 @@ public class Application {
 	@Bean
 	public CommandLineRunner run(RestTemplate restTemplate) throws Exception {
 		return args -> {
-			String fullSymbol = "sh510050";
+			String [][] symbolArray = {
+					{"sh510050","0510050"},
+					{"sz162411","1162411"}
+			};
+
+	        String symbol2Name = "http://img1.money.126.net/data/hs/kline/day/history/2019/" + symbolArray[0][1] + ".json";
+	        Symbol2Name s2n = restTemplate.getForObject(symbol2Name, Symbol2Name.class);
+	        log.info("Symbol: " + s2n.getSymbol() );
+	        log.info("Name: " + s2n.getName() );
+	        String [] [] s = s2n.getData();
+	        log.info("data[last]: " + s[s.length-1][0]);
+	        log.info("data[last]: " + s[s.length-1][1]);
+	        log.info("data[last]: " + s[s.length-1][2]);
+	        log.info("data[last]: " + s[s.length-1][3]);
+	        log.info("data[last]: " + s[s.length-1][4]);
+	        
+			System.out.println(symbolArray[0][0] + "," + symbolArray[0][1]);
+			String fullSymbol = symbolArray[0][0];
 			String stockdataUrl = "http://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol=" 
 				+ fullSymbol + "&scale=" 
 				+ ONEWEEK + "&ma=no&datalen=20";
@@ -64,6 +81,7 @@ public class Application {
 	        
 	        for (OneWeekRecord employee : owr) {
 	        	  System.out.println(employee);
+	        	  saveToMongoDB(s2n.getSymbol(), employee);
 	        }
 	        
 	        System.out.println();
@@ -76,16 +94,6 @@ public class Application {
 	        	  System.out.println(employee);
 	        }
 	        
-	        String symbol2Name = "http://img1.money.126.net/data/hs/kline/day/history/2019/0510050.json";
-	        Symbol2Name s2n = restTemplate.getForObject(symbol2Name, Symbol2Name.class);
-	        log.info("Symbol: " + s2n.getSymbol() );
-	        log.info("Name: " + s2n.getName() );
-	        String [] [] s = s2n.getData();
-	        log.info("data[last]: " + s[s.length-1][0]);
-	        log.info("data[last]: " + s[s.length-1][1]);
-	        log.info("data[last]: " + s[s.length-1][2]);
-	        log.info("data[last]: " + s[s.length-1][3]);
-	        log.info("data[last]: " + s[s.length-1][4]);
 	        
 	        Date dNow = new Date( );
 	        SimpleDateFormat ft = new SimpleDateFormat ("yyyy-MM-dd");
@@ -103,5 +111,25 @@ public class Application {
 	        System.out.println("mKey hashCode: " + mKey.hashCode());
 //			repository.save(new Customer("Bob", "Smith"));
 		};
+	}
+
+	private void saveToMongoDB(String symbol, OneWeekRecord owr) {
+		// TODO Auto-generated method stub
+
+//        Date dNow = new Date( );
+//        SimpleDateFormat ft = new SimpleDateFormat ("yyyy-MM-dd");
+//        String formatDate = ft.format(dNow);
+//        System.out.println("Current Date: " + formatDate);
+//        System.out.println(symbol, owr.getDay());
+        
+//		// save a couple of customers
+        MyKey mKey = new MyKey(symbol, owr.getDay());
+        BigDecimal open = new BigDecimal(owr.getOpen());
+        BigDecimal close = new BigDecimal(owr.getClose());
+        BigDecimal high = new BigDecimal(owr.getHigh());
+        BigDecimal low = new BigDecimal(owr.getLow());
+        BigDecimal volume = new BigDecimal(owr.getVolume());
+		repository.save(new StockWeekRecord(mKey, open, close, low, high, volume)) ;
+//        System.out.println("mKey hashCode: " + mKey.hashCode());
 	}
 }

@@ -2,20 +2,17 @@ package hello;
 
 import java.io.Serializable;
 
-import javax.persistence.Column;
-import javax.persistence.Embeddable;
+import org.springframework.data.mongodb.core.mapping.Field;
 
-@Embeddable
+//@Embeddable
 public class MyKey implements Serializable {
-	/**
-	 * 
-	 */
-	private static final long serialVersionUID = 1L;
-
-	@Column(name = "stockid")
+	private static final long serialVersionUID = -7884881517554554023L;
+//	@Column(name = "stockid")
+	@Field(order = 1)
 	private String stockId;
 	
-	@Column(name = "day")
+//	@Column(name = "day")
+	@Field(order = 2)
 	private String day;
 
 	public MyKey(String stockId, String day) {
