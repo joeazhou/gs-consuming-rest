@@ -7,6 +7,11 @@ import javax.persistence.Embeddable;
 
 @Embeddable
 public class MyKey implements Serializable {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
 	@Column(name = "stockid")
 	private String stockId;
 	
@@ -39,12 +44,12 @@ public class MyKey implements Serializable {
 		if (day == null) {
 			if (other.day != null)
 				return false;
-		} else if (!day.equals(other.day))
+		} else if (!day.equalsIgnoreCase(other.day))
 			return false;
 		if (stockId == null) {
 			if (other.stockId != null)
 				return false;
-		} else if (!stockId.equals(other.stockId))
+		} else if (!stockId.equalsIgnoreCase(other.stockId))
 			return false;
 		return true;
 	}

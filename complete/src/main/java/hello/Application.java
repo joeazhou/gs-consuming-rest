@@ -49,28 +49,43 @@ public class Application {
 		return restTemplate;
 //		return builder.build();
 	}
-
+	private static final int MINS5 = 5;
+	private static final int ONEHOUR = 60;
+	private static final int ONEDAY = ONEHOUR * 4;
+	private static final int ONEWEEK = ONEDAY * 5;
 	@Bean
 	public CommandLineRunner run(RestTemplate restTemplate) throws Exception {
 		return args -> {
-			String stockdataUrl = "http://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol=sh510050&scale=1200&ma=no&datalen=20";
+			String fullSymbol = "sh510050";
+			String stockdataUrl = "http://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol=" 
+				+ fullSymbol + "&scale=" 
+				+ ONEWEEK + "&ma=no&datalen=20";
 	        OneWeekRecord [] owr = restTemplate.getForObject(stockdataUrl, OneWeekRecord[].class);
 	        
 	        for (OneWeekRecord employee : owr) {
 	        	  System.out.println(employee);
 	        }
 	        
-	        stockdataUrl = "http://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol=sz162411&scale=240&ma=no&datalen=20";
+	        System.out.println();
+	        stockdataUrl = "http://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol="
+	        	+ fullSymbol + "&scale=" 
+	        	+ MINS5 + "&ma=no&datalen=2";
 	        owr = restTemplate.getForObject(stockdataUrl, OneWeekRecord[].class);
 	        
 	        for (OneWeekRecord employee : owr) {
 	        	  System.out.println(employee);
 	        }
 	        
-	        String symbol2Name = "http://img1.money.126.net/data/hs/kline/day/history/2019/1162411.json";
+	        String symbol2Name = "http://img1.money.126.net/data/hs/kline/day/history/2019/0510050.json";
 	        Symbol2Name s2n = restTemplate.getForObject(symbol2Name, Symbol2Name.class);
 	        log.info("Symbol: " + s2n.getSymbol() );
 	        log.info("Name: " + s2n.getName() );
+	        String [] [] s = s2n.getData();
+	        log.info("data[last]: " + s[s.length-1][0]);
+	        log.info("data[last]: " + s[s.length-1][1]);
+	        log.info("data[last]: " + s[s.length-1][2]);
+	        log.info("data[last]: " + s[s.length-1][3]);
+	        log.info("data[last]: " + s[s.length-1][4]);
 	        
 	        Date dNow = new Date( );
 	        SimpleDateFormat ft = new SimpleDateFormat ("yyyy-MM-dd");
@@ -85,6 +100,7 @@ public class Application {
 	        BigDecimal low = new BigDecimal("2");
 	        BigDecimal volume = new BigDecimal("23432432");
 			repository.save(new StockWeekRecord(mKey, open, close, low, high, volume)) ;
+	        System.out.println("mKey hashCode: " + mKey.hashCode());
 //			repository.save(new Customer("Bob", "Smith"));
 		};
 	}
