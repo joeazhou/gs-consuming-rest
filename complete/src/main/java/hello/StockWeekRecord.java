@@ -1,6 +1,5 @@
 package hello;
 
-
 import org.springframework.data.annotation.Id;
 
 import java.math.BigDecimal;
@@ -20,21 +19,11 @@ public class StockWeekRecord extends MyKey{
 	@EmbeddedId
 	private MyKey myKey;
 	
-//	@Id
-//	@Column(name = "stockId")
-//	private String stockId;
-//
-//	@Id
-//	@Column(name = "day")
-//	private String day;
-	
     @Column(name = "open") 
     private java.math.BigDecimal open;
-    
 
     @Column(name = "close") 
     private java.math.BigDecimal close;
-    
 
     @Column(name = "low") 
     private java.math.BigDecimal low;
@@ -45,12 +34,11 @@ public class StockWeekRecord extends MyKey{
     @Column(name = "volume") 
     private java.math.BigDecimal volume;
 
-    public StockWeekRecord() {    	
+    public StockWeekRecord() {
     }
 
     public StockWeekRecord(MyKey mykey, BigDecimal open, BigDecimal close, BigDecimal low, BigDecimal high, BigDecimal volume ) {
     	this.myKey = mykey;
-//    	this.day = day;
     	this.open = open;
     	this.close = close;
     	this.low = low;
@@ -58,22 +46,6 @@ public class StockWeekRecord extends MyKey{
     	this.volume = volume;
     }
 
-//	public String getStockId() {
-//		return stockId;
-//	}
-//
-//	public void setStockId(String stockId) {
-//		this.stockId = stockId;
-//	}
-//
-//	public String getDay() {
-//		return day;
-//	}
-//
-//	public void setDay(String day) {
-//		this.day = day;
-//	}
-    
 	public java.math.BigDecimal getOpen() {
 		return open;
 	}
@@ -113,8 +85,4 @@ public class StockWeekRecord extends MyKey{
 	public void setVolume(java.math.BigDecimal volume) {
 		this.volume = volume;
 	}
-    
-
-    /** Your getters and setters **/
-    
 }
