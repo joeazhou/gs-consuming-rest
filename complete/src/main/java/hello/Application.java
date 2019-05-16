@@ -94,7 +94,6 @@ public class Application implements CommandLineRunner {
 		};
 
 		for (String[] array : symbolArray) {
-
 			String symbol2Name = "http://img1.money.126.net/data/hs/kline/day/history/2019/" + array[1]
 					+ ".json";
 			Symbol2Name s2n = restTemplate.getForObject(symbol2Name, Symbol2Name.class);
