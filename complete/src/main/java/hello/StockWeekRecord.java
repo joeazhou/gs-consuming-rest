@@ -34,6 +34,15 @@ public class StockWeekRecord extends MyKey{
     @Column(name = "volume") 
     private java.math.BigDecimal volume;
 
+    @Column(name = "week1change") 
+    private java.math.BigDecimal week1change;
+
+    @Column(name = "week2change") 
+    private java.math.BigDecimal week2change;
+
+    @Column(name = "week4change") 
+    private java.math.BigDecimal week4change;
+    
     public StockWeekRecord() {
     }
 
@@ -46,6 +55,26 @@ public class StockWeekRecord extends MyKey{
     	this.volume = volume;
     }
 
+    public StockWeekRecord(MyKey mykey, BigDecimal open, BigDecimal close, BigDecimal low, BigDecimal high, BigDecimal volume, BigDecimal week1change, BigDecimal week2change, BigDecimal week4change  ) {
+    	this.myKey = mykey;
+    	this.open = open;
+    	this.close = close;
+    	this.low = low;
+    	this.high = high;
+    	this.volume = volume;
+    	this.week1change = week1change;
+    	this.week2change = week2change;
+    	this.week4change = week4change;
+    }
+
+    public String getDay() {
+    	return myKey.getDay();
+    }
+
+    public String getStockId() {
+    	return myKey.getStockId();
+    }
+    
 	public java.math.BigDecimal getOpen() {
 		return open;
 	}
@@ -84,5 +113,29 @@ public class StockWeekRecord extends MyKey{
 
 	public void setVolume(java.math.BigDecimal volume) {
 		this.volume = volume;
+	}
+
+	public java.math.BigDecimal getWeek1change() {
+		return week1change;
+	}
+
+	public void setWeek1change(java.math.BigDecimal week1change) {
+		this.week1change = week1change;
+	}
+
+	public java.math.BigDecimal getWeek2change() {
+		return week2change;
+	}
+
+	public void setWeek2change(java.math.BigDecimal week2change) {
+		this.week2change = week2change;
+	}
+
+	public java.math.BigDecimal getWeek4change() {
+		return week4change;
+	}
+
+	public void setWeek4change(java.math.BigDecimal week4change) {
+		this.week4change = week4change;
 	}
 }
