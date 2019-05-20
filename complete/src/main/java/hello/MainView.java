@@ -10,6 +10,7 @@ import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.spring.annotation.UIScope;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.util.StringUtils;
@@ -17,34 +18,44 @@ import org.springframework.util.StringUtils;
 @Route
 public class MainView extends VerticalLayout {
 
-	private final StockWeekRecordRepository repo;
+	private final StockWeekChangeRepository repo;
 
-	final Grid<StockWeekRecord> grid;
+	final Grid<StockWeekChange> grid;
 
 	final TextField filter;
 
 	private final Button addNewBtn;
 
-	public MainView(StockWeekRecordRepository repo) {
+	public MainView(StockWeekChangeRepository repo) {
 		this.repo = repo;
-		this.grid = new Grid<>(StockWeekRecord.class);
+		this.grid = new Grid<>(StockWeekChange.class);
 		this.filter = new TextField();
-		this.addNewBtn = new Button("New StockWeekRecord", VaadinIcon.PLUS.create());
+		this.addNewBtn = new Button("New StockWeekChange", VaadinIcon.PLUS.create());
   
 		add(grid);
+
+		grid.setColumnReorderingAllowed(true);
+//		grid.setColumns("stockId", "day", "close", "week4change", "week2change");
+		
 		listData();
 	}
 
-	private void listData() {
-		List<StockWeekRecord> swbyid = repo.findByMyKeyDay("2019-05-17");
-		grid.setItems(swbyid);
-		System.out.println(swbyid.size());
-		for (StockWeekRecord oneinst : swbyid) {
+	public void listData() {
+		List<StockWeekChange> swbyid = repo.findByDay("2019-05-20");
+		grid.setItems(repo.findByDay("2019-05-20"));
+//		grid.setItems(repo.findAll());
+
+		List<StockWeekChange> newlist = new ArrayList<StockWeekChange>();
+		System.out.println("Printing from mainView " + swbyid.size());
+		for (StockWeekChange oneinst : swbyid) {
+			newlist.add(oneinst);
+//			grid.(oneinst);
 			 System.out.println(oneinst.getStockId() + " " + oneinst.getDay() + 
 					 " close:" + oneinst.getClose() +
 					 " 4 week: " + oneinst.getWeek4change()+
 					 " 2 week: " + oneinst.getWeek2change());
-		}
+		} 
+//		grid.setItems(newlist);
 //		for (StockWeekRecord oneinst : swbyid) {
 			
 //			 System.out.println(oneinst.getStockId() + " " + oneinst.getDay() + 

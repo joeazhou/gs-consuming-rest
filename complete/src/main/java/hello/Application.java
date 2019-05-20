@@ -36,6 +36,8 @@ public class Application implements CommandLineRunner {
 	@Autowired
 	private StockWeekRecordRepository repository;
 	@Autowired
+	private StockWeekChangeRepository weekChangeRepository;
+	@Autowired
 	private RestTemplate restTemplate;
 
 	private static final Logger log = LoggerFactory.getLogger(Application.class);
@@ -151,8 +153,11 @@ public class Application implements CommandLineRunner {
 		}
 
 		List<StockWeekRecord> swbyid = repository.findByMyKeyDay(day);
-		System.out.println(swbyid.size());
+		System.out.println("Printing from application: " +swbyid.size());
 		for (StockWeekRecord oneinst : swbyid) {
+			weekChangeRepository.save(new StockWeekChange(oneinst.getStockId(), oneinst.getDay(), oneinst.getClose(), oneinst.getWeek4change(),
+					oneinst.getWeek2change(), oneinst.getWeek1change()));
+			
 			 System.out.println(oneinst.getStockId() + " " + oneinst.getDay() + 
 					 " close:" + oneinst.getClose() +
 					 " 4 week: " + oneinst.getWeek4change()+
