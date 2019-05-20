@@ -2,7 +2,6 @@ package hello;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
@@ -10,7 +9,6 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
-import java.util.Optional;
 import java.util.TimeZone;
 
 import org.slf4j.Logger;
@@ -46,6 +44,7 @@ public class Application implements CommandLineRunner {
 	private static final int ONEDAY = ONEHOUR * 4;
 	private static final int ONEWEEK = ONEDAY * 5;
 	private String day;
+	private boolean firstRun = true;
 
 	public static void main(String args[]) {
 		SpringApplication.run(Application.class);
@@ -75,9 +74,10 @@ public class Application implements CommandLineRunner {
 
 	@Scheduled(fixedRate = 60000)
 	private void loopToFindData() {
-		if (!isTrading()) {
+		if (!isTrading() && firstRun == false) {
 			return;
 		}
+		firstRun = false;
 		String[][] symbolArray = { 
 				{ "sh510050", "0510050", "", "" }, 
 				{ "sz159901", "1159901", "", "" }, 
@@ -93,7 +93,9 @@ public class Application implements CommandLineRunner {
 				{ "sh513500", "0513500", "", "" }, 
 		};
 
+		// loop for every stock
 		for (String[] array : symbolArray) {
+			// get symbol and chinese name and current quote. quote in format 0.??? in trading hour, 0.?? if not in
 			String symbol2Name = "http://img1.money.126.net/data/hs/kline/day/history/2019/" + array[1]
 					+ ".json";
 			Symbol2Name s2n = restTemplate.getForObject(symbol2Name, Symbol2Name.class);
@@ -103,6 +105,7 @@ public class Application implements CommandLineRunner {
 			System.out.println("126.net data: " + array[0] + "/" + array[1] + " Symbol: "
 					+ array[2] + " Name: " + array[3] + " data[date]: " + s[s.length - 1][0]);
 
+			// get historical data for 20 weeks
 			String fullSymbol = array[0];
 			String stockdataUrl = "http://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol="
 					+ fullSymbol + "&scale=" + ONEWEEK + "&ma=no&datalen=20";
@@ -114,6 +117,7 @@ public class Application implements CommandLineRunner {
 				saveToMongoDB(s2n.getSymbol(), r);
 			}
 
+			// get five minutes data
 			stockdataUrl = "http://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol="
 					+ fullSymbol + "&scale=" + MINS5 + "&ma=no&datalen=1";
 			owr = restTemplate.getForObject(stockdataUrl, OneWeekRecord[].class);
@@ -126,13 +130,6 @@ public class Application implements CommandLineRunner {
 			}
 
 			mergeSaveThisWeekData(s2n.getSymbol(), weekdayData, min5Data);
-
-			List<StockWeekRecord> swbyid = repository.findByMyKeyDay(day);
-			// System.out.println(swbyid.size());
-			for (StockWeekRecord oneinst : swbyid) {
-				// System.out.println(oneinst.getStockId() + " " + oneinst.getDay() + " close:"
-				// + oneinst.getClose());
-			}
 
 			List<StockWeekRecord> swbysymbol = repository.findByMyKeyStockId(s2n.getSymbol());
 			StockWeekRecord item = swbysymbol.get(swbysymbol.size() - 1);
@@ -151,6 +148,15 @@ public class Application implements CommandLineRunner {
 
 			System.out.print(" is scanned.");
 			System.out.println();
+		}
+
+		List<StockWeekRecord> swbyid = repository.findByMyKeyDay(day);
+		System.out.println(swbyid.size());
+		for (StockWeekRecord oneinst : swbyid) {
+			 System.out.println(oneinst.getStockId() + " " + oneinst.getDay() + 
+					 " close:" + oneinst.getClose() +
+					 " 4 week: " + oneinst.getWeek4change()+
+					 " 2 week: " + oneinst.getWeek2change());
 		}
 	};
 
@@ -238,6 +244,27 @@ public class Application implements CommandLineRunner {
 
 			MyKey deleteKey = new MyKey(symbol, weekdayData.getDay());
 			repository.deleteById(deleteKey);
+		} else {
+			// not in the same week, save latest record
+			MyKey mk = new MyKey();
+			mk.setDay(getDate(min5Data.getDay()));
+			mk.setStockId(symbol);
+
+			String close = min5Data.getClose();
+			String low = min5Data.getLow();
+			String volume = min5Data.getVolume();
+			String high = min5Data.getHigh();
+			String open = min5Data.getOpen();
+
+			OneWeekRecord owr = new OneWeekRecord();
+			owr.setDay(getDate(min5Data.getDay()));
+			owr.setClose(close);
+			owr.setLow(low);
+			owr.setVolume(volume);
+			owr.setHigh(high);
+			owr.setOpen(open);
+
+			saveToMongoDB(symbol, owr);
 		}
 	}
 
