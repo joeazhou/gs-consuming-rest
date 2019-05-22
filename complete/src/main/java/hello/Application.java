@@ -154,6 +154,7 @@ public class Application implements CommandLineRunner {
 
 		List<StockWeekRecord> swbyid = repository.findByMyKeyDay(day);
 		System.out.println("Printing from application: " +swbyid.size());
+		weekChangeRepository.deleteAll();
 		for (StockWeekRecord oneinst : swbyid) {
 			weekChangeRepository.save(new StockWeekChange(oneinst.getStockId(), oneinst.getDay(), oneinst.getClose(), oneinst.getWeek4change(),
 					oneinst.getWeek2change(), oneinst.getWeek1change()));
