@@ -6,6 +6,8 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
@@ -37,6 +39,8 @@ public class Application implements CommandLineRunner {
 	private StockWeekRecordRepository repository;
 	@Autowired
 	private StockWeekChangeRepository weekChangeRepository;
+	@Autowired
+	private Week2ChangeRepository week2ChangeRepository;
 	@Autowired
 	private RestTemplate restTemplate;
 
@@ -153,10 +157,36 @@ public class Application implements CommandLineRunner {
 		}
 
 		List<StockWeekRecord> swbyid = repository.findByMyKeyDay(day);
-		System.out.println("Printing from application: " +swbyid.size());
 		weekChangeRepository.deleteAll();
+		week2ChangeRepository.deleteAll();
+
+        // Sort in des order
+        Collections.sort(swbyid, new Comparator<StockWeekRecord>() {
+            public int compare(StockWeekRecord p1, StockWeekRecord p2) {
+                return p2.getWeek4change().compareTo(p1.getWeek4change());
+            }
+        });
+
+		System.out.println("Sort on week 4 changes for total records: " +swbyid.size());
 		for (StockWeekRecord oneinst : swbyid) {
 			weekChangeRepository.save(new StockWeekChange(oneinst.getStockId(), oneinst.getDay(), oneinst.getClose(), oneinst.getWeek4change(),
+					oneinst.getWeek2change(), oneinst.getWeek1change()));
+			
+			 System.out.println(oneinst.getStockId() + " " + oneinst.getDay() + 
+					 " close:" + oneinst.getClose() +
+					 " 4 week: " + oneinst.getWeek4change()+
+					 " 2 week: " + oneinst.getWeek2change());
+		}
+        // Sort in aes order
+        Collections.sort(swbyid, new Comparator<StockWeekRecord>() {
+            public int compare(StockWeekRecord p1, StockWeekRecord p2) {
+                return p2.getWeek2change().compareTo(p1.getWeek2change());
+            }
+        });
+
+		System.out.println("Sort on week 2 changes for total records: " +swbyid.size());
+		for (StockWeekRecord oneinst : swbyid) {
+			week2ChangeRepository.save(new Week2Change(oneinst.getStockId(), oneinst.getDay(), oneinst.getClose(), oneinst.getWeek4change(),
 					oneinst.getWeek2change(), oneinst.getWeek1change()));
 			
 			 System.out.println(oneinst.getStockId() + " " + oneinst.getDay() + 
@@ -184,7 +214,7 @@ public class Application implements CommandLineRunner {
 		int hour = calendar.get(Calendar.HOUR_OF_DAY);
 		int minute = calendar.get(Calendar.MINUTE);
 		boolean trading = timeInTradeHours(dayOfWeek, hour, minute);
-		System.out.println("In trading hours? " + trading);
+		System.out.print(".");
 		return trading;
 	}
 
@@ -357,6 +387,7 @@ public class Application implements CommandLineRunner {
 	private void saveTodaySampleDataToMongoDB() {
 		Date dNow = new Date();
 		SimpleDateFormat ft = new SimpleDateFormat("yyyy-MM-dd");
+//		SimpleDateFormat ft = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
 		String formatDate = ft.format(dNow);
 		// System.out.println("Current Date: " + formatDate);
 
