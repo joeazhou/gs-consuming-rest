@@ -60,7 +60,7 @@ public class MainView extends VerticalLayout {
 
 		grid.setColumnReorderingAllowed(true);
 		grid.setWidth("650px");
-		grid.setHeight("500px");
+		grid.setHeight("600px");
 				
 		// NumberRenderer to render numbers in general
 		grid.addColumn(TemplateRenderer.of("[[index]]")).setHeader("#").setWidth("5px");
@@ -76,7 +76,7 @@ public class MainView extends VerticalLayout {
 		
 		week2grid.setColumnReorderingAllowed(true);
 		week2grid.setWidth("650px");
-		week2grid.setHeight("500px");
+		week2grid.setHeight("600px");
 
 		week2grid.addColumn(TemplateRenderer.of("[[index]]")).setHeader("#").setWidth("5px");
 		week2grid.addColumn(Week2Change::getDay).setHeader("Date").setWidth("80px");

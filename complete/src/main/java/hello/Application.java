@@ -10,8 +10,11 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.TimeZone;
+import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +26,8 @@ import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.ClientHttpRequestFactory;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -52,6 +57,15 @@ public class Application implements CommandLineRunner {
 	private String day;
 	private boolean firstRun = true;
 
+	private Symbol2Name s2n;
+    private final int TIMEOUT = (int) TimeUnit.SECONDS.toMillis(120);
+
+	private String[][] symbolArray = { { "sh510050", "0510050", "", "" }, { "sz159901", "1159901", "", "" },
+			{ "sh510300", "0510300", "", "" }, { "sh510500", "0510500", "", "" }, { "sh512100", "0512100", "", "" },
+			{ "sz159915", "1159915", "", "" }, { "sh513100", "0513100", "", "" }, { "sz159928", "1159928", "", "" },
+			{ "sz162411", "1162411", "", "" }, { "sh512010", "0512010", "", "" }, { "sz160216", "1160216", "", "" },
+			{ "sh513500", "0513500", "", "" }, };
+	
 	public static void main(String args[]) {
 		SpringApplication.run(Application.class);
 	}
@@ -61,7 +75,7 @@ public class Application implements CommandLineRunner {
 		RestTemplate restTemplate = new RestTemplate();
 		MappingJackson2HttpMessageConverter mappingJackson2HttpMessageConverter = new MappingJackson2HttpMessageConverter();
 		mappingJackson2HttpMessageConverter
-				.setSupportedMediaTypes(Arrays.asList(MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN));
+		.setSupportedMediaTypes(Arrays.asList(MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN));
 		com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
 		// 允许使用未带引号的字段名
 		mapper.configure(Feature.ALLOW_UNQUOTED_FIELD_NAMES, true);
@@ -70,6 +84,14 @@ public class Application implements CommandLineRunner {
 
 		mappingJackson2HttpMessageConverter.setObjectMapper(mapper);
 		restTemplate.getMessageConverters().add(mappingJackson2HttpMessageConverter);
+
+		//https://stackoverflow.com/questions/43909219/spring-resttemplate-connection-timeout-is-not-working
+        SimpleClientHttpRequestFactory factory =
+                (SimpleClientHttpRequestFactory) restTemplate.getRequestFactory();
+
+        factory.setReadTimeout(TIMEOUT);
+        factory.setConnectTimeout(TIMEOUT);
+
 		return restTemplate;
 	}
 
@@ -80,64 +102,112 @@ public class Application implements CommandLineRunner {
 
 	@Scheduled(fixedRate = 60000)
 	private void loopToFindData() {
+		if (firstRun == true ) {
+			// clean existing data
+			// get stock symbol once and for all
+			// loop for every stock
+			for (String[] array : symbolArray) {
+				// get symbol and chinese name and current quote. quote in format 0.??? in
+				// trading hour, 0.?? if not in
+				// Use 126.net to get symbol
+				String symbol2Name = "http://img1.money.126.net/data/hs/kline/day/history/2019/" + array[1] + ".json";
+				try {
+					s2n = restTemplate.getForObject(symbol2Name, Symbol2Name.class);
+				} catch (Exception e) {
+					log.error(e.getLocalizedMessage());
+//					e.printStackTrace();
+					continue;
+				}
+				String[][] s = s2n.getData();
+				array[2] = s2n.getSymbol();
+				array[3] = s2n.getName();
+				log.info("126.net data: " + array[0] + "/" + array[1] + " Symbol: " + array[2] + " Name: "
+						+ array[3] + " date: " + s[s.length - 1][0]);
+				
+
+				Set<String> yearweekset = new HashSet<>();
+				List<StockWeekRecord> recordlist = repository.findByMyKeyStockId(s2n.getSymbol());
+
+				// Sort in des order
+				Collections.sort(recordlist, new Comparator<StockWeekRecord>() {
+					public int compare(StockWeekRecord p1, StockWeekRecord p2) {
+						return p2.getDay().compareTo(p1.getDay());
+					}
+				});
+				
+				int count = 0;
+				for (StockWeekRecord oneinst : recordlist) {
+					String oneday = oneinst.getDay() ;
+					log.trace("Day: " +oneday + " Year: " + getYear(oneday) + " Week: " + getWeekOfYear(oneday));
+					String weekKey = getYear(oneday)+ "-" +getWeekOfYear(oneday);
+					if ( count == 0 ) {
+						yearweekset.add(weekKey);
+						count++;
+					}
+					else if (yearweekset.contains(weekKey)) {
+						repository.delete(oneinst);
+						log.trace("deleting " + oneinst.getDay());
+						continue;
+					} else {
+						yearweekset.add(weekKey);
+					}
+				}
+				log.trace("# of record saved: " + yearweekset.size());
+			}
+		}
 		if (!isTrading() && firstRun == false) {
 			return;
 		}
 		firstRun = false;
-		String[][] symbolArray = { 
-				{ "sh510050", "0510050", "", "" }, 
-				{ "sz159901", "1159901", "", "" }, 
-				{ "sh510300", "0510300", "", "" }, 
-				{ "sh510500", "0510500", "", "" }, 
-				{ "sh512100", "0512100", "", "" }, 
-				{ "sz159915", "1159915", "", "" }, 
-				{ "sh513100", "0513100", "", "" }, 
-				{ "sz159928", "1159928", "", "" },
-				{ "sz162411", "1162411", "", "" },
-				{ "sh512010", "0512010", "", "" }, 
-				{ "sz160216", "1160216", "", "" },
-				{ "sh513500", "0513500", "", "" }, 
-		};
 
 		// loop for every stock
 		for (String[] array : symbolArray) {
-			// get symbol and chinese name and current quote. quote in format 0.??? in trading hour, 0.?? if not in
-			String symbol2Name = "http://img1.money.126.net/data/hs/kline/day/history/2019/" + array[1]
-					+ ".json";
-			Symbol2Name s2n = restTemplate.getForObject(symbol2Name, Symbol2Name.class);
-			String[][] s = s2n.getData();
-			array[2] = s2n.getSymbol();
-			array[3] = s2n.getName();
-			System.out.println("126.net data: " + array[0] + "/" + array[1] + " Symbol: "
-					+ array[2] + " Name: " + array[3] + " data[date]: " + s[s.length - 1][0]);
-
 			// get historical data for 20 weeks
+			// use sina.com to get data
 			String fullSymbol = array[0];
+			String symbol = array[2];
 			String stockdataUrl = "http://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol="
 					+ fullSymbol + "&scale=" + ONEWEEK + "&ma=no&datalen=20";
-			OneWeekRecord[] owr = restTemplate.getForObject(stockdataUrl, OneWeekRecord[].class);
-			OneWeekRecord weekdayData = owr[owr.length - 1];
-			System.out.println("Sina.com weekly data: " + weekdayData);
-
-			for (OneWeekRecord r : owr) {
-				saveToMongoDB(s2n.getSymbol(), r);
+			OneWeekRecord[] owr;
+			try {
+				owr = restTemplate.getForObject(stockdataUrl, OneWeekRecord[].class);
+			} catch (Exception e) {
+				log.error(e.getLocalizedMessage());
+//				e.printStackTrace();
+				continue;
 			}
+			OneWeekRecord weekdayData = owr[owr.length - 1];
+			log.trace("Sina.com weekly data: " + weekdayData);
 
 			// get five minutes data
 			stockdataUrl = "http://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol="
 					+ fullSymbol + "&scale=" + MINS5 + "&ma=no&datalen=1";
-			owr = restTemplate.getForObject(stockdataUrl, OneWeekRecord[].class);
+			try {
+				owr = restTemplate.getForObject(stockdataUrl, OneWeekRecord[].class);
+			} catch (Exception e) {
+				log.error(e.getLocalizedMessage());
+//				e.printStackTrace();
+				continue;
+			}
 
 			OneWeekRecord min5Data = owr[owr.length - 1];
 
 			for (OneWeekRecord r : owr) {
 				min5Data = r;
-				System.out.println("Sina.com 5 mins data: " + r);
+				log.trace("Sina.com 5 mins data: " + r);
 			}
 
-			mergeSaveThisWeekData(s2n.getSymbol(), weekdayData, min5Data);
+			mergeSaveThisWeekData(symbol, weekdayData, min5Data);
 
-			List<StockWeekRecord> swbysymbol = repository.findByMyKeyStockId(s2n.getSymbol());
+			List<StockWeekRecord> swbysymbol = repository.findByMyKeyStockId(symbol);
+
+			// Sort in des order
+			Collections.sort(swbysymbol, new Comparator<StockWeekRecord>() {
+				public int compare(StockWeekRecord p1, StockWeekRecord p2) {
+					return p1.getDay().compareTo(p2.getDay());
+				}
+			});
+			
 			StockWeekRecord item = swbysymbol.get(swbysymbol.size() - 1);
 			StockWeekRecord itemMinus1 = swbysymbol.get(swbysymbol.size() - 2);
 			StockWeekRecord itemMinus2 = swbysymbol.get(swbysymbol.size() - 3);
@@ -148,51 +218,98 @@ public class Application implements CommandLineRunner {
 			item.setWeek4change(changeRate(item, itemMinus4));
 			repository.save(item);
 
-			for (String oneName : array) {
-				System.out.print(oneName + " ");
+			// insert PUT300 record
+			if (symbol.equalsIgnoreCase("510300")) {
+				StockWeekRecord call300 = repository.findByMyKey(new MyKey("510300", day));
+				StockWeekRecord put300 = new StockWeekRecord(new MyKey("PUT300", day), call300.getOpen(),
+						call300.getClose(), call300.getLow(), call300.getHigh(), call300.getVolume());
+				put300.setWeek1change(call300.getWeek1change().negate());
+				put300.setWeek2change(call300.getWeek2change().negate());
+				put300.setWeek4change(call300.getWeek4change().negate());
+				repository.save(put300);
+				StockWeekRecord oldput300 = repository.findByMyKey(new MyKey("PUT300", weekdayData.getDay()));
+				if (!weekdayData.getDay().equalsIgnoreCase(day) && oldput300 != null)
+					repository.delete(oldput300);
 			}
 
-			System.out.print(" is scanned.");
-			System.out.println();
+			// insert PUTXOP record
+			if (symbol.equalsIgnoreCase("162411")) {
+				StockWeekRecord callxop = repository.findByMyKey(new MyKey("162411", day));
+				StockWeekRecord PUTXOP = new StockWeekRecord(new MyKey("PUTXOP", day), callxop.getOpen(),
+						callxop.getClose(), callxop.getLow(), callxop.getHigh(), callxop.getVolume());
+				PUTXOP.setWeek1change(callxop.getWeek1change().negate());
+				PUTXOP.setWeek2change(callxop.getWeek2change().negate());
+				PUTXOP.setWeek4change(callxop.getWeek4change().negate());
+				repository.save(PUTXOP);
+				StockWeekRecord oldPUTXOP = repository.findByMyKey(new MyKey("PUTXOP", weekdayData.getDay()));
+				if (!weekdayData.getDay().equalsIgnoreCase(day) && oldPUTXOP != null)
+					repository.delete(oldPUTXOP);
+			}
+
+			// insert PUTSPY record
+			if (symbol.equalsIgnoreCase("513500")) {
+				StockWeekRecord call513500 = repository.findByMyKey(new MyKey("513500", day));
+				StockWeekRecord PUTSPY = new StockWeekRecord(new MyKey("PUTSPY", day), call513500.getOpen(),
+						call513500.getClose(), call513500.getLow(), call513500.getHigh(), call513500.getVolume());
+				PUTSPY.setWeek1change(call513500.getWeek1change().negate());
+				PUTSPY.setWeek2change(call513500.getWeek2change().negate());
+				PUTSPY.setWeek4change(call513500.getWeek4change().negate());
+				repository.save(PUTSPY);
+				StockWeekRecord oldPUTSPY = repository.findByMyKey(new MyKey("PUTSPY", weekdayData.getDay()));
+				if (!weekdayData.getDay().equalsIgnoreCase(day) && oldPUTSPY != null)
+					repository.delete(oldPUTSPY);
+			}
+
+			
+			//log which stock is processed
+//			for (String oneName : array) {
+				log.info(array[array.length-1] + " is scanned.");
+//			}
+//
+//			System.out.print(" is scanned.");
+//			System.out.println();
 		}
 
+		// delete 2 weeks change table and 4 weeks change table
 		List<StockWeekRecord> swbyid = repository.findByMyKeyDay(day);
 		weekChangeRepository.deleteAll();
 		week2ChangeRepository.deleteAll();
 
-        // Sort in des order
-        Collections.sort(swbyid, new Comparator<StockWeekRecord>() {
-            public int compare(StockWeekRecord p1, StockWeekRecord p2) {
-                return p2.getWeek4change().compareTo(p1.getWeek4change());
-            }
-        });
-
-		System.out.println("Sort on week 4 changes for total records: " +swbyid.size());
-		for (StockWeekRecord oneinst : swbyid) {
-			weekChangeRepository.save(new StockWeekChange(oneinst.getStockId(), oneinst.getDay(), oneinst.getClose(), oneinst.getWeek4change(),
-					oneinst.getWeek2change(), oneinst.getWeek1change()));
-			
-			 System.out.println(oneinst.getStockId() + " " + oneinst.getDay() + 
-					 " close:" + oneinst.getClose() +
-					 " 4 week: " + oneinst.getWeek4change()+
-					 " 2 week: " + oneinst.getWeek2change());
+		log.trace("today: " + day);
+		for (StockWeekRecord oneinst : swbyid) { 
+			log.trace(oneinst.getStockId() + " " + oneinst.getDay() + " close:" + oneinst.getClose()
+			+ " 4 week: " + oneinst.getWeek4change() + " 2 week: " + oneinst.getWeek2change());
 		}
-        // Sort in aes order
-        Collections.sort(swbyid, new Comparator<StockWeekRecord>() {
-            public int compare(StockWeekRecord p1, StockWeekRecord p2) {
-                return p2.getWeek2change().compareTo(p1.getWeek2change());
-            }
-        });
+		
+		// Sort in des order
+		Collections.sort(swbyid, new Comparator<StockWeekRecord>() {
+			public int compare(StockWeekRecord p1, StockWeekRecord p2) {
+				return p2.getWeek4change().compareTo(p1.getWeek4change());
+			}
+		});
 
-		System.out.println("Sort on week 2 changes for total records: " +swbyid.size());
+		log.info("Sort on week 4 changes for total stocks: " + swbyid.size());
 		for (StockWeekRecord oneinst : swbyid) {
-			week2ChangeRepository.save(new Week2Change(oneinst.getStockId(), oneinst.getDay(), oneinst.getClose(), oneinst.getWeek4change(),
-					oneinst.getWeek2change(), oneinst.getWeek1change()));
-			
-			 System.out.println(oneinst.getStockId() + " " + oneinst.getDay() + 
-					 " close:" + oneinst.getClose() +
-					 " 4 week: " + oneinst.getWeek4change()+
-					 " 2 week: " + oneinst.getWeek2change());
+			weekChangeRepository.save(new StockWeekChange(oneinst.getStockId(), oneinst.getDay(), oneinst.getClose(),
+					oneinst.getWeek4change(), oneinst.getWeek2change(), oneinst.getWeek1change()));
+
+			log.info(oneinst.getStockId() + " " + oneinst.getDay() + " close:" + oneinst.getClose()
+			+ " 4 week: " + oneinst.getWeek4change() );
+		}
+		// Sort in aes order
+		Collections.sort(swbyid, new Comparator<StockWeekRecord>() {
+			public int compare(StockWeekRecord p1, StockWeekRecord p2) {
+				return p2.getWeek2change().compareTo(p1.getWeek2change());
+			}
+		});
+
+		log.info("Sort on week 2 changes for total stocks: " + swbyid.size());
+		for (StockWeekRecord oneinst : swbyid) {
+			week2ChangeRepository.save(new Week2Change(oneinst.getStockId(), oneinst.getDay(), oneinst.getClose(),
+					oneinst.getWeek4change(), oneinst.getWeek2change(), oneinst.getWeek1change()));
+
+			log.info(oneinst.getStockId() + " " + oneinst.getDay() + " close:" + oneinst.getClose()
+			+ " 2 week: " + oneinst.getWeek2change());
 		}
 	};
 
@@ -257,33 +374,11 @@ public class Application implements CommandLineRunner {
 		day = getDate(min5Data.getDay());
 
 		if (inSameDay(input, feedin)) {
+			log.trace("Same day. Do nothing");
 		} else if (inSameWeek(input, feedin)) {
+			log.trace("Same week. save latest min5 data. delete last day data");
 			MyKey mk = new MyKey();
-			mk.setDay(getDate(min5Data.getDay()));
-			mk.setStockId(symbol);
-
-			String close = min5Data.getClose();
-			String low = weekdayData.getLow();
-			String volume = weekdayData.getVolume();
-			String high = weekdayData.getHigh();
-			String open = weekdayData.getOpen();
-
-			OneWeekRecord owr = new OneWeekRecord();
-			owr.setDay(getDate(min5Data.getDay()));
-			owr.setClose(close);
-			owr.setLow(low);
-			owr.setVolume(volume);
-			owr.setHigh(high);
-			owr.setOpen(open);
-
-			saveToMongoDB(symbol, owr);
-
-			MyKey deleteKey = new MyKey(symbol, weekdayData.getDay());
-			repository.deleteById(deleteKey);
-		} else {
-			// not in the same week, save latest record
-			MyKey mk = new MyKey();
-			mk.setDay(getDate(min5Data.getDay()));
+			mk.setDay(day);
 			mk.setStockId(symbol);
 
 			String close = min5Data.getClose();
@@ -293,7 +388,33 @@ public class Application implements CommandLineRunner {
 			String open = min5Data.getOpen();
 
 			OneWeekRecord owr = new OneWeekRecord();
-			owr.setDay(getDate(min5Data.getDay()));
+			owr.setDay(day);
+			owr.setClose(close);
+			owr.setLow(low);
+			owr.setVolume(volume);
+			owr.setHigh(high);
+			owr.setOpen(open);
+
+			log.trace("saving " + symbol + " " + owr);
+			saveToMongoDB(symbol, owr);
+
+			MyKey deleteKey = new MyKey(symbol, weekdayData.getDay());
+			repository.deleteById(deleteKey);
+		} else {
+			log.trace("Different week. save latest min5 data. ");
+			// not in the same week, save latest record
+			MyKey mk = new MyKey();
+			mk.setDay(day);
+			mk.setStockId(symbol);
+
+			String close = min5Data.getClose();
+			String low = min5Data.getLow();
+			String volume = min5Data.getVolume();
+			String high = min5Data.getHigh();
+			String open = min5Data.getOpen();
+
+			OneWeekRecord owr = new OneWeekRecord();
+			owr.setDay(day);
 			owr.setClose(close);
 			owr.setLow(low);
 			owr.setVolume(volume);
@@ -321,6 +442,16 @@ public class Application implements CommandLineRunner {
 	}
 
 	private boolean inSameDay(String input, String feedin) {
+		int week = getDayOfMonth(input) ;
+		int feedinweek = getDayOfMonth(feedin);
+
+		if (week == feedinweek)
+			return true;
+		else
+			return false;
+	}
+	
+	private int getDayOfMonth(String input) {
 		String format = "yyyy-MM-dd";
 		SimpleDateFormat df = new SimpleDateFormat(format);
 		Date date = new Date();
@@ -333,27 +464,10 @@ public class Application implements CommandLineRunner {
 		Calendar cal2 = Calendar.getInstance();
 		cal2.setTime(date);
 		int week = cal2.get(Calendar.DAY_OF_MONTH);
-		// System.out.println(input + " is Day " + week + " of this month");
-
-		Date min5date = new Date();
-		try {
-			min5date = df.parse(feedin);
-		} catch (ParseException e) {
-			e.printStackTrace();
-		}
-
-		Calendar cal3 = Calendar.getInstance();
-		cal3.setTime(min5date);
-		int feedinweek = cal3.get(Calendar.DAY_OF_MONTH);
-		// System.out.println(feedin + " is Day " + feedinweek + " of this month");
-
-		if (week == feedinweek)
-			return true;
-		else
-			return false;
+		return week;
 	}
-
-	private boolean inSameWeek(String input, String feedin) {
+	
+	private int getWeekOfYear(String input) {
 		String format = "yyyy-MM-dd";
 		SimpleDateFormat df = new SimpleDateFormat(format);
 		Date date = new Date();
@@ -366,17 +480,27 @@ public class Application implements CommandLineRunner {
 		Calendar cal2 = Calendar.getInstance();
 		cal2.setTime(date);
 		int week = cal2.get(Calendar.WEEK_OF_YEAR);
+		return week;
+	}
 
-		Date min5date = new Date();
+	private int getYear(String input) {
+		String format = "yyyy-MM-dd";
+		SimpleDateFormat df = new SimpleDateFormat(format);
+		Date date = new Date();
 		try {
-			min5date = df.parse(feedin);
+			date = df.parse(input);
 		} catch (ParseException e) {
 			e.printStackTrace();
 		}
 
-		Calendar cal3 = Calendar.getInstance();
-		cal3.setTime(min5date);
-		int feedinweek = cal3.get(Calendar.WEEK_OF_YEAR);
+		Calendar cal2 = Calendar.getInstance();
+		cal2.setTime(date);
+		int week = cal2.get(Calendar.YEAR);
+		return week;
+	}
+	private boolean inSameWeek(String input, String feedin) {
+		int week = getWeekOfYear(input);
+		int feedinweek = getWeekOfYear(feedin);
 
 		if (week == feedinweek)
 			return true;
@@ -387,9 +511,7 @@ public class Application implements CommandLineRunner {
 	private void saveTodaySampleDataToMongoDB() {
 		Date dNow = new Date();
 		SimpleDateFormat ft = new SimpleDateFormat("yyyy-MM-dd");
-//		SimpleDateFormat ft = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
 		String formatDate = ft.format(dNow);
-		// System.out.println("Current Date: " + formatDate);
 
 		MyKey mKey = new MyKey("162411", formatDate);
 		BigDecimal open = new BigDecimal("2");
@@ -398,7 +520,7 @@ public class Application implements CommandLineRunner {
 		BigDecimal low = new BigDecimal("2");
 		BigDecimal volume = new BigDecimal("23432432");
 		repository.save(new StockWeekRecord(mKey, open, close, low, high, volume));
-		System.out.println("mKey hashCode: " + mKey.hashCode());
+		log.trace("mKey hashCode: " + mKey.hashCode());
 	}
 
 	private void saveToMongoDB(String symbol, OneWeekRecord owr) {
@@ -408,6 +530,18 @@ public class Application implements CommandLineRunner {
 		BigDecimal high = new BigDecimal(owr.getHigh());
 		BigDecimal low = new BigDecimal(owr.getLow());
 		BigDecimal volume = new BigDecimal(owr.getVolume());
-		repository.save(new StockWeekRecord(mKey, open, close, low, high, volume));
+		log.trace("mKey: " + mKey );
+		log.trace("mKey exists? " + repository.existsById(mKey));
+		StockWeekRecord swr = repository.findByMyKey(mKey);
+		if (swr == null) {
+			repository.save(new StockWeekRecord(mKey, open, close, low, high, volume));
+		} else {
+			swr.setOpen(open);
+			swr.setClose(close);
+			swr.setHigh(high);
+			swr.setLow(low);
+			swr.setVolume(volume);
+			repository.save(swr);
+		}
 	}
 }
