@@ -55,17 +55,18 @@ public class Application implements CommandLineRunner {
 	private static final int ONEDAY = ONEHOUR * 4;
 	private static final int ONEWEEK = ONEDAY * 5;
 	private String day;
+	private String lastCheckTime;
 	private boolean firstRun = true;
 
 	private Symbol2Name s2n;
-    private final int TIMEOUT = (int) TimeUnit.SECONDS.toMillis(120);
+	private final int TIMEOUT = (int) TimeUnit.SECONDS.toMillis(120);
 
 	private String[][] symbolArray = { { "sh510050", "0510050", "", "" }, { "sz159901", "1159901", "", "" },
 			{ "sh510300", "0510300", "", "" }, { "sh510500", "0510500", "", "" }, { "sh512100", "0512100", "", "" },
 			{ "sz159915", "1159915", "", "" }, { "sh513100", "0513100", "", "" }, { "sz159928", "1159928", "", "" },
 			{ "sz162411", "1162411", "", "" }, { "sh512010", "0512010", "", "" }, { "sz160216", "1160216", "", "" },
 			{ "sh513500", "0513500", "", "" }, };
-	
+
 	public static void main(String args[]) {
 		SpringApplication.run(Application.class);
 	}
@@ -85,12 +86,11 @@ public class Application implements CommandLineRunner {
 		mappingJackson2HttpMessageConverter.setObjectMapper(mapper);
 		restTemplate.getMessageConverters().add(mappingJackson2HttpMessageConverter);
 
-		//https://stackoverflow.com/questions/43909219/spring-resttemplate-connection-timeout-is-not-working
-        SimpleClientHttpRequestFactory factory =
-                (SimpleClientHttpRequestFactory) restTemplate.getRequestFactory();
+		// https://stackoverflow.com/questions/43909219/spring-resttemplate-connection-timeout-is-not-working
+		SimpleClientHttpRequestFactory factory = (SimpleClientHttpRequestFactory) restTemplate.getRequestFactory();
 
-        factory.setReadTimeout(TIMEOUT);
-        factory.setConnectTimeout(TIMEOUT);
+		factory.setReadTimeout(TIMEOUT);
+		factory.setConnectTimeout(TIMEOUT);
 
 		return restTemplate;
 	}
@@ -102,7 +102,7 @@ public class Application implements CommandLineRunner {
 
 	@Scheduled(fixedRate = 60000)
 	private void loopToFindData() {
-		if (firstRun == true ) {
+		if (firstRun == true) {
 			// clean existing data
 			// get stock symbol once and for all
 			// loop for every stock
@@ -115,15 +115,14 @@ public class Application implements CommandLineRunner {
 					s2n = restTemplate.getForObject(symbol2Name, Symbol2Name.class);
 				} catch (Exception e) {
 					log.error(e.getLocalizedMessage());
-//					e.printStackTrace();
+					// e.printStackTrace();
 					continue;
 				}
 				String[][] s = s2n.getData();
 				array[2] = s2n.getSymbol();
 				array[3] = s2n.getName();
-				log.info("126.net data: " + array[0] + "/" + array[1] + " Symbol: " + array[2] + " Name: "
-						+ array[3] + " date: " + s[s.length - 1][0]);
-				
+				log.info("126.net data: " + array[0] + "/" + array[1] + " Symbol: " + array[2] + " Name: " + array[3]
+						+ " date: " + s[s.length - 1][0]);
 
 				Set<String> yearweekset = new HashSet<>();
 				List<StockWeekRecord> recordlist = repository.findByMyKeyStockId(s2n.getSymbol());
@@ -134,17 +133,16 @@ public class Application implements CommandLineRunner {
 						return p2.getDay().compareTo(p1.getDay());
 					}
 				});
-				
+
 				int count = 0;
 				for (StockWeekRecord oneinst : recordlist) {
-					String oneday = oneinst.getDay() ;
-					log.trace("Day: " +oneday + " Year: " + getYear(oneday) + " Week: " + getWeekOfYear(oneday));
-					String weekKey = getYear(oneday)+ "-" +getWeekOfYear(oneday);
-					if ( count == 0 ) {
+					String oneday = oneinst.getDay();
+					log.trace("Day: " + oneday + " Year: " + getYear(oneday) + " Week: " + getWeekOfYear(oneday));
+					String weekKey = getYear(oneday) + "-" + getWeekOfYear(oneday);
+					if (count == 0) {
 						yearweekset.add(weekKey);
 						count++;
-					}
-					else if (yearweekset.contains(weekKey)) {
+					} else if (yearweekset.contains(weekKey)) {
 						repository.delete(oneinst);
 						log.trace("deleting " + oneinst.getDay());
 						continue;
@@ -173,7 +171,7 @@ public class Application implements CommandLineRunner {
 				owr = restTemplate.getForObject(stockdataUrl, OneWeekRecord[].class);
 			} catch (Exception e) {
 				log.error(e.getLocalizedMessage());
-//				e.printStackTrace();
+				// e.printStackTrace();
 				continue;
 			}
 			OneWeekRecord weekdayData = owr[owr.length - 1];
@@ -186,7 +184,7 @@ public class Application implements CommandLineRunner {
 				owr = restTemplate.getForObject(stockdataUrl, OneWeekRecord[].class);
 			} catch (Exception e) {
 				log.error(e.getLocalizedMessage());
-//				e.printStackTrace();
+				// e.printStackTrace();
 				continue;
 			}
 
@@ -207,7 +205,7 @@ public class Application implements CommandLineRunner {
 					return p1.getDay().compareTo(p2.getDay());
 				}
 			});
-			
+
 			StockWeekRecord item = swbysymbol.get(swbysymbol.size() - 1);
 			StockWeekRecord itemMinus1 = swbysymbol.get(swbysymbol.size() - 2);
 			StockWeekRecord itemMinus2 = swbysymbol.get(swbysymbol.size() - 3);
@@ -260,14 +258,13 @@ public class Application implements CommandLineRunner {
 					repository.delete(oldPUTSPY);
 			}
 
-			
-			//log which stock is processed
-//			for (String oneName : array) {
-				log.info(array[array.length-1] + " is scanned.");
-//			}
-//
-//			System.out.print(" is scanned.");
-//			System.out.println();
+			// log which stock is processed
+			// for (String oneName : array) {
+			log.info(array[array.length - 1] + " is scanned.");
+			// }
+			//
+			// System.out.print(" is scanned.");
+			// System.out.println();
 		}
 
 		// delete 2 weeks change table and 4 weeks change table
@@ -276,11 +273,11 @@ public class Application implements CommandLineRunner {
 		week2ChangeRepository.deleteAll();
 
 		log.trace("today: " + day);
-		for (StockWeekRecord oneinst : swbyid) { 
-			log.trace(oneinst.getStockId() + " " + oneinst.getDay() + " close:" + oneinst.getClose()
-			+ " 4 week: " + oneinst.getWeek4change() + " 2 week: " + oneinst.getWeek2change());
+		for (StockWeekRecord oneinst : swbyid) {
+			log.trace(oneinst.getStockId() + " " + oneinst.getDay() + " close:" + oneinst.getClose() + " 4 week: "
+					+ oneinst.getWeek4change() + " 2 week: " + oneinst.getWeek2change());
 		}
-		
+
 		// Sort in des order
 		Collections.sort(swbyid, new Comparator<StockWeekRecord>() {
 			public int compare(StockWeekRecord p1, StockWeekRecord p2) {
@@ -293,8 +290,8 @@ public class Application implements CommandLineRunner {
 			weekChangeRepository.save(new StockWeekChange(oneinst.getStockId(), oneinst.getDay(), oneinst.getClose(),
 					oneinst.getWeek4change(), oneinst.getWeek2change(), oneinst.getWeek1change()));
 
-			log.info(oneinst.getStockId() + " " + oneinst.getDay() + " close:" + oneinst.getClose()
-			+ " 4 week: " + oneinst.getWeek4change() );
+			log.info(oneinst.getStockId() + " " + oneinst.getDay() + " close:" + oneinst.getClose() + " 4 week: "
+					+ oneinst.getWeek4change());
 		}
 		// Sort in aes order
 		Collections.sort(swbyid, new Comparator<StockWeekRecord>() {
@@ -308,13 +305,14 @@ public class Application implements CommandLineRunner {
 			week2ChangeRepository.save(new Week2Change(oneinst.getStockId(), oneinst.getDay(), oneinst.getClose(),
 					oneinst.getWeek4change(), oneinst.getWeek2change(), oneinst.getWeek1change()));
 
-			log.info(oneinst.getStockId() + " " + oneinst.getDay() + " close:" + oneinst.getClose()
-			+ " 2 week: " + oneinst.getWeek2change());
+			log.info(oneinst.getStockId() + " " + oneinst.getDay() + " close:" + oneinst.getClose() + " 2 week: "
+					+ oneinst.getWeek2change());
 		}
+		
+		log.info("Last Check Time:" + lastCheckTime);
 	};
 
 	private BigDecimal changeRate(StockWeekRecord item, StockWeekRecord itemMinus1) {
-
 		BigDecimal bd0 = itemMinus1.getClose();
 		BigDecimal bdnow = item.getClose();
 		BigDecimal week4diff = bdnow.subtract(bd0).divide(bd0, 4, RoundingMode.HALF_UP);
@@ -331,7 +329,7 @@ public class Application implements CommandLineRunner {
 		int hour = calendar.get(Calendar.HOUR_OF_DAY);
 		int minute = calendar.get(Calendar.MINUTE);
 		boolean trading = timeInTradeHours(dayOfWeek, hour, minute);
-		System.out.print(".");
+		log.info("One loop is done");
 		return trading;
 	}
 
@@ -372,7 +370,10 @@ public class Application implements CommandLineRunner {
 		String input = weekdayData.getDay();
 		String feedin = min5Data.getDay();
 		day = getDate(min5Data.getDay());
-
+		log.info("Compare 2 days: " + weekdayData.getDay() + " and " + min5Data.getDay());
+		lastCheckTime = getCheckTime(weekdayData, min5Data);
+		log.info("Latest check time: " + lastCheckTime);
+		
 		if (inSameDay(input, feedin)) {
 			log.trace("Same day. Do nothing");
 		} else if (inSameWeek(input, feedin)) {
@@ -425,6 +426,36 @@ public class Application implements CommandLineRunner {
 		}
 	}
 
+	private String getCheckTime(OneWeekRecord weekdayData, OneWeekRecord min5Data) {
+		Date lastOne = new Date();
+		String format = "yyyy-MM-dd";
+		SimpleDateFormat df = new SimpleDateFormat(format);
+		Date date = new Date();
+		try {
+			date = df.parse(weekdayData.getDay());
+		} catch (ParseException e) {
+			e.printStackTrace();
+		}
+
+		Calendar cal2 = Calendar.getInstance();
+		cal2.setTime(date);
+		long firstTime = cal2.getTimeInMillis();
+		
+		try {
+			date = df.parse(min5Data.getDay());
+		} catch (ParseException e) {
+			e.printStackTrace();
+		}
+
+		cal2 = Calendar.getInstance();
+		cal2.setTime(date);
+		long secondTime = cal2.getTimeInMillis();
+		if (firstTime < secondTime)
+			return min5Data.getDay();
+		else
+			return weekdayData.getDay();
+	}
+
 	private String getDate(String day) {
 		String format = "yyyy-MM-dd";
 		SimpleDateFormat df = new SimpleDateFormat(format);
@@ -442,7 +473,7 @@ public class Application implements CommandLineRunner {
 	}
 
 	private boolean inSameDay(String input, String feedin) {
-		int week = getDayOfMonth(input) ;
+		int week = getDayOfMonth(input);
 		int feedinweek = getDayOfMonth(feedin);
 
 		if (week == feedinweek)
@@ -450,7 +481,7 @@ public class Application implements CommandLineRunner {
 		else
 			return false;
 	}
-	
+
 	private int getDayOfMonth(String input) {
 		String format = "yyyy-MM-dd";
 		SimpleDateFormat df = new SimpleDateFormat(format);
@@ -466,7 +497,7 @@ public class Application implements CommandLineRunner {
 		int week = cal2.get(Calendar.DAY_OF_MONTH);
 		return week;
 	}
-	
+
 	private int getWeekOfYear(String input) {
 		String format = "yyyy-MM-dd";
 		SimpleDateFormat df = new SimpleDateFormat(format);
@@ -498,6 +529,7 @@ public class Application implements CommandLineRunner {
 		int week = cal2.get(Calendar.YEAR);
 		return week;
 	}
+
 	private boolean inSameWeek(String input, String feedin) {
 		int week = getWeekOfYear(input);
 		int feedinweek = getWeekOfYear(feedin);
@@ -530,11 +562,12 @@ public class Application implements CommandLineRunner {
 		BigDecimal high = new BigDecimal(owr.getHigh());
 		BigDecimal low = new BigDecimal(owr.getLow());
 		BigDecimal volume = new BigDecimal(owr.getVolume());
-		log.trace("mKey: " + mKey );
+		log.trace("mKey: " + mKey);
 		log.trace("mKey exists? " + repository.existsById(mKey));
 		StockWeekRecord swr = repository.findByMyKey(mKey);
 		if (swr == null) {
 			repository.save(new StockWeekRecord(mKey, open, close, low, high, volume));
+			log.info("Create Symbol: " + symbol + " close: " + close);
 		} else {
 			swr.setOpen(open);
 			swr.setClose(close);
@@ -542,6 +575,7 @@ public class Application implements CommandLineRunner {
 			swr.setLow(low);
 			swr.setVolume(volume);
 			repository.save(swr);
+			log.info("Update Symbol: " + symbol + " close: " + close);
 		}
 	}
 }

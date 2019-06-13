@@ -57,6 +57,8 @@ public class MainView extends VerticalLayout {
 		layout.add(grid, week2grid);
 		
 		add(layout);
+		add(filter);
+	
 
 		grid.setColumnReorderingAllowed(true);
 		grid.setWidth("650px");
