@@ -2,6 +2,9 @@ package hello;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
@@ -10,12 +13,20 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import javax.net.ssl.SSLContext;
+
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.ssl.TrustStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +38,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.ClientHttpRequestFactory;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -61,19 +73,38 @@ public class Application implements CommandLineRunner {
 	private Symbol2Name s2n;
 	private final int TIMEOUT = (int) TimeUnit.SECONDS.toMillis(120);
 
-	private String[][] symbolArray = { { "sh510050", "0510050", "", "" }, { "sz159901", "1159901", "", "" },
-			{ "sh510300", "0510300", "", "" }, { "sh510500", "0510500", "", "" }, { "sh512100", "0512100", "", "" },
-			{ "sz159915", "1159915", "", "" }, { "sh513100", "0513100", "", "" }, { "sz159928", "1159928", "", "" },
-			{ "sz162411", "1162411", "", "" }, { "sh512010", "0512010", "", "" }, { "sz160216", "1160216", "", "" },
-			{ "sh513500", "0513500", "", "" }, };
+	private String[][] symbolArray = { { "sh510050", "0510050", "510050", "50ETF" }, { "sz159901", "1159901", "159901", "深100ETF" },
+			{ "sh510300", "0510300", "510300", "300ETF" }, { "sh510500", "0510500", "510500", "500ETF" }, { "sh512100", "0512100", "512100", "1000ETF" },
+			{ "sz159915", "1159915", "159915", "创业板" }, { "sh513100", "0513100", "513100", "纳指ETF" }, { "sz159928", "1159928", "159928", "消费ETF" },
+			{ "sz162411", "1162411", "162411", "华宝油气" }, { "sh512010", "0512010", "512010", "医药ETF" }, { "sz160216", "1160216", "160216", "国泰商品" },
+			{ "sh513500", "0513500", "513500", "标普500" }, };
 
 	public static void main(String args[]) {
 		SpringApplication.run(Application.class);
 	}
 
 	@Bean
-	public RestTemplate restTemplate(RestTemplateBuilder builder) {
-		RestTemplate restTemplate = new RestTemplate();
+	public RestTemplate restTemplate(RestTemplateBuilder builder) throws KeyManagementException, NoSuchAlgorithmException, KeyStoreException {
+		TrustStrategy acceptingTrustStrategy = (java.security.cert.X509Certificate[] chain, String authType) -> true;
+
+		SSLContext sslContext; 
+			sslContext = org.apache.http.ssl.SSLContexts.custom()
+			        .loadTrustMaterial(null, acceptingTrustStrategy)
+			        .build(); 
+		SSLConnectionSocketFactory csf = new SSLConnectionSocketFactory(sslContext);
+
+		CloseableHttpClient httpClient = HttpClients.custom()
+		        .setSSLSocketFactory(csf)
+		        .build();
+
+		HttpComponentsClientHttpRequestFactory requestFactory =
+		        new HttpComponentsClientHttpRequestFactory();
+
+		requestFactory.setHttpClient(httpClient);
+
+		RestTemplate restTemplate = new RestTemplate(requestFactory);
+		
+//		RestTemplate restTemplate = new RestTemplate();
 		MappingJackson2HttpMessageConverter mappingJackson2HttpMessageConverter = new MappingJackson2HttpMessageConverter();
 		mappingJackson2HttpMessageConverter
 		.setSupportedMediaTypes(Arrays.asList(MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN));
@@ -87,7 +118,7 @@ public class Application implements CommandLineRunner {
 		restTemplate.getMessageConverters().add(mappingJackson2HttpMessageConverter);
 
 		// https://stackoverflow.com/questions/43909219/spring-resttemplate-connection-timeout-is-not-working
-		SimpleClientHttpRequestFactory factory = (SimpleClientHttpRequestFactory) restTemplate.getRequestFactory();
+		HttpComponentsClientHttpRequestFactory factory = (HttpComponentsClientHttpRequestFactory) restTemplate.getRequestFactory();
 
 		factory.setReadTimeout(TIMEOUT);
 		factory.setConnectTimeout(TIMEOUT);
@@ -110,22 +141,23 @@ public class Application implements CommandLineRunner {
 				// get symbol and chinese name and current quote. quote in format 0.??? in
 				// trading hour, 0.?? if not in
 				// Use 126.net to get symbol
-				String symbol2Name = "http://img1.money.126.net/data/hs/kline/day/history/2019/" + array[1] + ".json";
-				try {
-					s2n = restTemplate.getForObject(symbol2Name, Symbol2Name.class);
-				} catch (Exception e) {
-					log.error(e.getLocalizedMessage());
-					// e.printStackTrace();
-					continue;
-				}
-				String[][] s = s2n.getData();
-				array[2] = s2n.getSymbol();
-				array[3] = s2n.getName();
-				log.info("126.net data: " + array[0] + "/" + array[1] + " Symbol: " + array[2] + " Name: " + array[3]
-						+ " date: " + s[s.length - 1][0]);
+//				String symbol2Name = "http://img1.money.126.net/data/hs/kline/day/history/2019/" + array[1] + ".json";
+//				try {
+//					log.info("Get sybol from " + symbol2Name);
+//					s2n = restTemplate.getForObject(symbol2Name, Symbol2Name.class);
+//				} catch (Exception e) {
+//					log.error(e.getLocalizedMessage());
+//					// e.printStackTrace();
+//					continue;
+//				}
+//				String[][] s = s2n.getData();
+//				array[2] = s2n.getSymbol();
+//				array[3] = s2n.getName();
+//				log.info("126.net data: " + array[0] + "/" + array[1] + " Symbol: " + array[2] + " Name: " + array[3]
+//						+ " date: " + s[s.length - 1][0]);
 
 				Set<String> yearweekset = new HashSet<>();
-				List<StockWeekRecord> recordlist = repository.findByMyKeyStockId(s2n.getSymbol());
+				List<StockWeekRecord> recordlist = repository.findByMyKeyStockId(array[2]);
 
 				// Sort in des order
 				Collections.sort(recordlist, new Comparator<StockWeekRecord>() {
@@ -168,6 +200,7 @@ public class Application implements CommandLineRunner {
 					+ fullSymbol + "&scale=" + ONEWEEK + "&ma=no&datalen=20";
 			OneWeekRecord[] owr;
 			try {
+				log.info("Get stock from " + stockdataUrl);
 				owr = restTemplate.getForObject(stockdataUrl, OneWeekRecord[].class);
 			} catch (Exception e) {
 				log.error(e.getLocalizedMessage());
@@ -181,6 +214,7 @@ public class Application implements CommandLineRunner {
 			stockdataUrl = "http://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol="
 					+ fullSymbol + "&scale=" + MINS5 + "&ma=no&datalen=1";
 			try {
+				log.info("Get stock from " + stockdataUrl);
 				owr = restTemplate.getForObject(stockdataUrl, OneWeekRecord[].class);
 			} catch (Exception e) {
 				log.error(e.getLocalizedMessage());
@@ -307,6 +341,29 @@ public class Application implements CommandLineRunner {
 
 			log.info(oneinst.getStockId() + " " + oneinst.getDay() + " close:" + oneinst.getClose() + " 2 week: "
 					+ oneinst.getWeek2change());
+		}
+		
+		// some symbol cannot be found at alpha vantage
+		// SZ url format https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=159915.SZ&apikey=TJI42OA10GGU4DXL
+		// SH url format https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=510300.SS&apikey=TJI42OA10GGU4DXL
+		// SH url format https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=USO&apikey=TJI42OA10GGU4DXL
+		String alphavantageurl = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=USO&apikey=TJI42OA10GGU4DXL";
+		AlphaVantageDaySeries avds;
+		try {
+			avds = restTemplate.getForObject(alphavantageurl, AlphaVantageDaySeries.class);
+			log.info("alpha vantage daily series data: " + avds);
+			if ( avds != null ) {
+				AlphaVantageMetaValue avmv = avds.getMetaData();
+				log.info("alpha vantage metadata symbol: " + avmv.getSymbol());
+				log.info("alpha vantage metadata Information: " + avmv.getInformation());
+				log.info("alpha vantage metadata TimeZone: " + avmv.getTimeZone());
+				Map<String, AlphaVantageDayValue> avdv = avds.getDayValues();
+				log.info("alpha vantage map #1 value: " + avdv.get("2019-06-17").getClose());
+			}
+		} catch (Exception e) {
+			log.error(e.getLocalizedMessage());
+			// e.printStackTrace();
+//			continue;
 		}
 		
 		log.info("Last Check Time:" + lastCheckTime);
