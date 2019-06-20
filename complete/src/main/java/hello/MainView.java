@@ -27,11 +27,11 @@ import org.springframework.util.StringUtils;
 @Route
 public class MainView extends VerticalLayout {
 
-	private final StockWeekChangeRepository repo;
-	private final Week2ChangeRepository repo2week;
+	private final Stock4WeekChangeRepository repo;
+	private final Stock2WeekChangeRepository repo2week;
 
-	final Grid<StockWeekChange> grid;
-	final Grid<Week2Change> week2grid;
+	final Grid<Stock4WeekChange> grid;
+	final Grid<Stock2WeekChange> week2grid;
 
 	final TextField filter;
 
@@ -39,14 +39,14 @@ public class MainView extends VerticalLayout {
 
 	private HorizontalLayout layout ;
 	
-	public MainView(StockWeekChangeRepository repo, Week2ChangeRepository repo2week) {
+	public MainView(Stock4WeekChangeRepository repo, Stock2WeekChangeRepository repo2week) {
 		this.repo = repo;
 		this.repo2week = repo2week;
 		
 		this.grid = new Grid<>();
 		this.week2grid = new Grid<>();
 		this.filter = new TextField();
-		this.addNewBtn = new Button("New StockWeekChange", VaadinIcon.PLUS.create());
+		this.addNewBtn = new Button("New Stock4WeekChange", VaadinIcon.PLUS.create());
 //		 UI.getCurrent().getPage().reload();
 		 UI.getCurrent().setPollInterval( ( int )  30000 );
 		
@@ -66,13 +66,13 @@ public class MainView extends VerticalLayout {
 				
 		// NumberRenderer to render numbers in general
 		grid.addColumn(TemplateRenderer.of("[[index]]")).setHeader("#").setWidth("5px");
-		grid.addColumn(StockWeekChange::getDay).setHeader("Date").setWidth("80px");
-		grid.addColumn(StockWeekChange::getStockId).setHeader("Stock").setWidth("50px");
-		grid.addColumn(StockWeekChange::getClose).setHeader("Close").setWidth("50px");
-		grid.addColumn(StockWeekChange::getWeek4change).setHeader("4Weeks").setWidth("50px"); 
-		grid.addColumn(TemplateRenderer.<StockWeekChange> of(
+		grid.addColumn(Stock4WeekChange::getDay).setHeader("Date").setWidth("80px");
+		grid.addColumn(Stock4WeekChange::getStockId).setHeader("Stock").setWidth("50px");
+		grid.addColumn(Stock4WeekChange::getClose).setHeader("Close").setWidth("50px");
+		grid.addColumn(Stock4WeekChange::getWeek4change).setHeader("4Weeks").setWidth("50px"); 
+		grid.addColumn(TemplateRenderer.<Stock4WeekChange> of(
 		        "[[item.week4change]]%")
-//		        .withProperty("week4change", StockWeekChange -> StockWeekChange.getWeek4change()),
+//		        .withProperty("week4change", Stock4WeekChange -> Stock4WeekChange.getWeek4change()),
 		        .withProperty("week4change", StockWeekChange -> StockWeekChange.getWeek4change().movePointRight(2)),
 		        "week4change").setHeader("4w-rate");
 		
@@ -81,13 +81,13 @@ public class MainView extends VerticalLayout {
 		week2grid.setHeight("600px");
 
 		week2grid.addColumn(TemplateRenderer.of("[[index]]")).setHeader("#").setWidth("5px");
-		week2grid.addColumn(Week2Change::getDay).setHeader("Date").setWidth("80px");
-		week2grid.addColumn(Week2Change::getStockId).setHeader("Stock").setWidth("50px");
-		week2grid.addColumn(Week2Change::getClose).setHeader("Close").setWidth("50px");
-		week2grid.addColumn(Week2Change::getWeek2change).setHeader("2Weeks").setWidth("50px"); 
-		week2grid.addColumn(TemplateRenderer.<Week2Change> of(
+		week2grid.addColumn(Stock2WeekChange::getDay).setHeader("Date").setWidth("80px");
+		week2grid.addColumn(Stock2WeekChange::getStockId).setHeader("Stock").setWidth("50px");
+		week2grid.addColumn(Stock2WeekChange::getClose).setHeader("Close").setWidth("50px");
+		week2grid.addColumn(Stock2WeekChange::getWeek2change).setHeader("2Weeks").setWidth("50px"); 
+		week2grid.addColumn(TemplateRenderer.<Stock2WeekChange> of(
 		        "[[item.week2change]]%")
-//		        .withProperty("week4change", StockWeekChange -> StockWeekChange.getWeek4change()),
+//		        .withProperty("week4change", Stock4WeekChange -> Stock4WeekChange.getWeek4change()),
 		        .withProperty("week2change", Week2Change -> Week2Change.getWeek2change().movePointRight(2)),
 		        "week2change").setHeader("2w-rate");
 		listData();

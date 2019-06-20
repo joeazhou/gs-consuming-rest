@@ -11,9 +11,9 @@ import javax.persistence.IdClass;
 import javax.persistence.Table;
 
 @Entity 
-@Table(name = "stockweekrecord")
+@Table(name = "stockweeklyrecord")
 @IdClass(MyKey.class)
-public class StockWeekRecord extends MyKey{
+public class StockWeeklyRecord extends MyKey{
 	private static final long serialVersionUID = -3405970650225408913L;
 	@Id
 	@EmbeddedId
@@ -43,10 +43,10 @@ public class StockWeekRecord extends MyKey{
     @Column(name = "week4change") 
     private java.math.BigDecimal week4change;
     
-    public StockWeekRecord() {
+    public StockWeeklyRecord() {
     }
 
-    public StockWeekRecord(MyKey mykey, BigDecimal open, BigDecimal close, BigDecimal low, BigDecimal high, BigDecimal volume ) {
+    public StockWeeklyRecord(MyKey mykey, BigDecimal open, BigDecimal close, BigDecimal low, BigDecimal high, BigDecimal volume ) {
     	this.myKey = mykey;
     	this.open = open;
     	this.close = close;
@@ -55,7 +55,7 @@ public class StockWeekRecord extends MyKey{
     	this.volume = volume;
     }
 
-    public StockWeekRecord(MyKey mykey, BigDecimal open, BigDecimal close, BigDecimal low, BigDecimal high, BigDecimal volume, BigDecimal week1change, BigDecimal week2change, BigDecimal week4change  ) {
+    public StockWeeklyRecord(MyKey mykey, BigDecimal open, BigDecimal close, BigDecimal low, BigDecimal high, BigDecimal volume, BigDecimal week1change, BigDecimal week2change, BigDecimal week4change  ) {
     	this.myKey = mykey;
     	this.open = open;
     	this.close = close;

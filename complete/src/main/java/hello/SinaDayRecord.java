@@ -3,7 +3,7 @@ package hello;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class OneWeekRecord
+public class SinaDayRecord
 {
     private String volume;
 
@@ -80,7 +80,7 @@ public class OneWeekRecord
     @Override
     public String toString()
     {
-        return "OneWeekRecord [day = "+day+", close = "+close+", low = "+low+", volume = "+volume+", high = "+high+", open = "+open+"]";
+        return "SinaDayRecord [day = "+day+", close = "+close+", low = "+low+", volume = "+volume+", high = "+high+", open = "+open+"]";
     }
 }
 			

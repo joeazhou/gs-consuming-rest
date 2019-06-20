@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 
 import org.springframework.data.annotation.Id;
               
-public class StockWeekChange {
+public class Stock4WeekChange {
 
     @Id
     public String id;
@@ -52,10 +52,10 @@ public class StockWeekChange {
 		this.flag2buy = flag2buy;
 	}
 
-	public StockWeekChange() {
+	public Stock4WeekChange() {
 	}
 
-	public StockWeekChange(String stockId, String day, BigDecimal close, BigDecimal week4change, BigDecimal week2change,
+	public Stock4WeekChange(String stockId, String day, BigDecimal close, BigDecimal week4change, BigDecimal week2change,
 			BigDecimal week1change) {
 		super();
 		this.id = stockId + " " + day;
@@ -125,7 +125,7 @@ public class StockWeekChange {
 
 	@Override
 	public String toString() {
-		return "StockWeekChange [id=" + id + ", stockId=" + stockId + ", day=" + day + ", close=" + close
+		return "Stock4WeekChange [id=" + id + ", stockId=" + stockId + ", day=" + day + ", close=" + close
 				+ ", week4change=" + week4change + ", week2change=" + week2change + ", week1change=" + week1change
 				+ "]";
 	}

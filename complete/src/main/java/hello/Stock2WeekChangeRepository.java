@@ -6,7 +6,7 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface StockWeekChangeRepository extends MongoRepository<StockWeekChange, String> {
-	    public List<StockWeekChange> findByDay(String day);
+public interface Stock2WeekChangeRepository extends MongoRepository<Stock2WeekChange, String> {
+	    public List<Stock2WeekChange> findByDay(String day);
 	    
 }
