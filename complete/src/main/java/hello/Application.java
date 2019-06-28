@@ -7,19 +7,20 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.GregorianCalendar;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.Stack;
 import java.util.TimeZone;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
@@ -40,7 +41,6 @@ import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 import org.springframework.http.MediaType;
-import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
@@ -62,6 +62,8 @@ public class Application implements CommandLineRunner {
 	@Autowired
 	private Stock2WeekChangeRepository stock2WeekChangeRepository;
 	@Autowired
+	private UsStockDailyRecordRepository usrepository;
+	@Autowired
 	private RestTemplate restTemplate;
 
 	private static final Logger log = LoggerFactory.getLogger(Application.class);
@@ -76,14 +78,16 @@ public class Application implements CommandLineRunner {
 	private AlphaVantageDaySeries avds = null;
 	private Symbol2Name s2n;
 	private final int TIMEOUT = (int) TimeUnit.SECONDS.toMillis(120);
+	private List<StockWeeklyRecord> uslist = new ArrayList<StockWeeklyRecord>(); 
 
-	private String[][] symbolArray = { { "sh510050", "0510050", "510050", "50ETF" },
+	private String[][] chinaSymbolArray = { { "sh510050", "0510050", "510050", "50ETF" },
 			{ "sz159901", "1159901", "159901", "深100ETF" }, { "sh510300", "0510300", "510300", "300ETF" },
 			{ "sh510500", "0510500", "510500", "500ETF" }, { "sh512100", "0512100", "512100", "1000ETF" },
 			{ "sz159915", "1159915", "159915", "创业板" }, { "sh513100", "0513100", "513100", "纳指ETF" },
 			{ "sz159928", "1159928", "159928", "消费ETF" }, { "sz162411", "1162411", "162411", "华宝油气" },
 			{ "sh512010", "0512010", "512010", "医药ETF" }, { "sz160216", "1160216", "160216", "国泰商品" },
 			{ "sh513500", "0513500", "513500", "标普500" }, };
+	private String[] usSymbolArray = { "USO", "XOP" };
 
 	public static void main(String args[]) {
 		SpringApplication.run(Application.class);
@@ -140,7 +144,7 @@ public class Application implements CommandLineRunner {
 			// clean existing data
 			// get stock symbol once and for all
 			// loop for every stock
-			for (String[] array : symbolArray) {
+			for (String[] array : chinaSymbolArray) {
 				// get symbol and chinese name and current quote. quote in format 0.??? in
 				// trading hour, 0.?? if not in
 				// Use 126.net to get symbol
@@ -217,7 +221,7 @@ public class Application implements CommandLineRunner {
 		firstRun = false;
 
 		// loop for every stock
-		for (String[] array : symbolArray) {
+		for (String[] array : chinaSymbolArray) {
 			// get historical data for 20 weeks
 			// use sina.com to get data
 			String fullSymbol = array[0];
@@ -293,23 +297,7 @@ public class Application implements CommandLineRunner {
 				if (!weekdayData.getDay().equalsIgnoreCase(day) && oldput300 != null)
 					repository.delete(oldput300);
 			}
-
-			// insert PUTXOP record
-			if (symbol.equalsIgnoreCase("162411")) {
-				StockWeeklyRecord callxop = repository.findByMyKey(new MyKey("162411", day));
-				StockWeeklyRecord PUTXOP = new StockWeeklyRecord(new MyKey("PUTXOP", day), callxop.getOpen(),
-						callxop.getClose(), callxop.getLow(), callxop.getHigh(), callxop.getVolume());
-				if (callxop.getWeek4change() != null) {
-					PUTXOP.setWeek1change(callxop.getWeek1change().negate());
-					PUTXOP.setWeek2change(callxop.getWeek2change().negate());
-					PUTXOP.setWeek4change(callxop.getWeek4change().negate());
-				}
-				repository.save(PUTXOP);
-				StockWeeklyRecord oldPUTXOP = repository.findByMyKey(new MyKey("PUTXOP", weekdayData.getDay()));
-				if (!weekdayData.getDay().equalsIgnoreCase(day) && oldPUTXOP != null)
-					repository.delete(oldPUTXOP);
-			}
-
+ 
 			// insert PUTSPY record
 			if (symbol.equalsIgnoreCase("513500")) {
 				StockWeeklyRecord call513500 = repository.findByMyKey(new MyKey("513500", day));
@@ -340,12 +328,144 @@ public class Application implements CommandLineRunner {
 		week4ChangeRepository.deleteAll();
 		stock2WeekChangeRepository.deleteAll();
 
+		// some symbol cannot be found at alpha vantage
+		// SZ url format
+		// https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=159915.SZ&apikey=TJI42OA10GGU4DXL
+		// SH url format
+		// https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=510300.SS&apikey=TJI42OA10GGU4DXL
+		// SH url format
+		// https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=USO&apikey=TJI42OA10GGU4DXL
+
+		if (lastCheckTime_alphavantage == 0 || (System.currentTimeMillis() > (lastCheckTime_alphavantage + 3600000))) {
+			uslist = new ArrayList<StockWeeklyRecord>();
+			for (String usSymbol : usSymbolArray) {
+				String alphavantageurl = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol="
+						+ usSymbol + "&apikey=TJI42OA10GGU4DXL";
+				try {
+					avds = restTemplate.getForObject(alphavantageurl, AlphaVantageDaySeries.class);
+
+					log.info("alpha vantage daily series data: " + avds);
+					if (avds != null) {
+						AlphaVantageMetaValue avmv = avds.getMetaData();
+						log.info("alpha vantage metadata symbol: " + avmv.getSymbol());
+						log.info("alpha vantage metadata Information: " + avmv.getInformation());
+						log.info("alpha vantage metadata TimeZone: " + avmv.getTimeZone());
+						Map<String, AlphaVantageDayValue> avdv = avds.getDayValues();
+//						log.info("alpha vantage map #1 value: " + avdv.get("2019-06-17").getClose());
+						Set<Entry<String, AlphaVantageDayValue>> entry2 = avdv.entrySet();
+						SortedMap<String, AlphaVantageDayValue> sortedMap = new TreeMap<String, AlphaVantageDayValue>();
+						for (Entry<String, AlphaVantageDayValue> temp : entry2) {
+							sortedMap.put(temp.getKey(), temp.getValue());
+						}
+						entry2 = sortedMap.entrySet();
+						String lastAlphaVantageRecord = "";
+						String weekId = "0000-00";
+						SortedMap<String, String> weeklymap = new TreeMap<String, String>();
+						
+						for (Entry<String, AlphaVantageDayValue> temp : entry2) {
+							if ( getWeekOfYear(temp.getKey()) <=9 ) 
+								weekId =  getYear(temp.getKey()) + "0" + getWeekOfYear(temp.getKey());
+							else
+								weekId =  "" + getYear(temp.getKey()) + getWeekOfYear(temp.getKey());
+
+							log.info("Week #: " + weekId + " is No." + getDayOfWeek(temp.getKey())+ " day in a week");
+							if( getDayOfWeek(temp.getKey()) != 6)
+								weeklymap.put(weekId, temp.getKey());
+							
+							lastAlphaVantageRecord = temp.getKey() + " " + temp.getValue().getClose();
+							MyKey mk = new MyKey();
+							mk.setDay(temp.getKey());
+							mk.setStockId(usSymbol);
+							BigDecimal open = BigDecimal.valueOf(Double.parseDouble(temp.getValue().getOpen()));
+							BigDecimal close = BigDecimal.valueOf(Double.parseDouble(temp.getValue().getClose()));
+							BigDecimal high = BigDecimal.valueOf(Double.parseDouble(temp.getValue().getHigh()));
+							BigDecimal low = BigDecimal.valueOf(Double.parseDouble(temp.getValue().getLow()));
+							BigDecimal volume= BigDecimal.valueOf(Double.parseDouble(temp.getValue().getVolume()));
+
+							UsStockDailyRecord usdr = new UsStockDailyRecord(mk,  open,  close,  low,  high, 
+									 volume ) ;
+							usrepository.save(usdr);
+							
+							log.info(lastAlphaVantageRecord);
+						}
+
+					    Stack<String> stack = new Stack<String>();
+						for (Entry<String, String> temp : weeklymap.entrySet() ) {
+							log.debug(temp.getKey() + ":" + temp.getValue());
+							stack.push(temp.getValue());
+						}
+						log.info(stack.toString());
+						String usNow =stack.pop();
+						String us1WeekBack  =stack.pop();
+						String us2WeekBack = stack.pop();
+						stack.pop();
+						String us4WeekBack = stack.pop();
+
+						StockWeeklyRecord XOPORUSO = new StockWeeklyRecord(new MyKey(usSymbol, usNow), 
+								new BigDecimal(sortedMap.get(usNow).getOpen()),
+								new BigDecimal(sortedMap.get(usNow).getClose()), 
+								new BigDecimal(sortedMap.get(usNow).getLow()), 
+								new BigDecimal(sortedMap.get(usNow).getHigh()), 
+								new BigDecimal(sortedMap.get(usNow).getVolume()));
+  
+						XOPORUSO.setWeek1change(changeRateString(sortedMap.get(usNow).getClose(), sortedMap.get(us1WeekBack).getClose()));
+						XOPORUSO.setWeek2change(changeRateString(sortedMap.get(usNow).getClose(), sortedMap.get(us2WeekBack).getClose()));
+						XOPORUSO.setWeek4change(changeRateString(sortedMap.get(usNow).getClose(), sortedMap.get(us4WeekBack).getClose())); 
+						
+						uslist.add(XOPORUSO);
+						
+						if(usSymbol.equalsIgnoreCase("XOP")) {
+							XOPORUSO = new StockWeeklyRecord(new MyKey("PUTXOP", usNow), 
+									new BigDecimal(sortedMap.get(usNow).getOpen()),
+									new BigDecimal(sortedMap.get(usNow).getClose()), 
+									new BigDecimal(sortedMap.get(usNow).getLow()), 
+									new BigDecimal(sortedMap.get(usNow).getHigh()), 
+									new BigDecimal(sortedMap.get(usNow).getVolume()));
+	  
+							XOPORUSO.setWeek1change(changeRateString(sortedMap.get(usNow).getClose(), sortedMap.get(us1WeekBack).getClose()).negate());
+							XOPORUSO.setWeek2change(changeRateString(sortedMap.get(usNow).getClose(), sortedMap.get(us2WeekBack).getClose()).negate());
+							XOPORUSO.setWeek4change(changeRateString(sortedMap.get(usNow).getClose(), sortedMap.get(us4WeekBack).getClose()).negate()); 
+							
+							uslist.add(XOPORUSO);
+						} else if (usSymbol.equalsIgnoreCase("USO")) {
+							XOPORUSO = new StockWeeklyRecord(new MyKey("PUTUSO", usNow), 
+									new BigDecimal(sortedMap.get(usNow).getOpen()),
+									new BigDecimal(sortedMap.get(usNow).getClose()), 
+									new BigDecimal(sortedMap.get(usNow).getLow()), 
+									new BigDecimal(sortedMap.get(usNow).getHigh()), 
+									new BigDecimal(sortedMap.get(usNow).getVolume()));
+	  
+							XOPORUSO.setWeek1change(changeRateString(sortedMap.get(usNow).getClose(), sortedMap.get(us1WeekBack).getClose()).negate());
+							XOPORUSO.setWeek2change(changeRateString(sortedMap.get(usNow).getClose(), sortedMap.get(us2WeekBack).getClose()).negate());
+							XOPORUSO.setWeek4change(changeRateString(sortedMap.get(usNow).getClose(), sortedMap.get(us4WeekBack).getClose()).negate()); 
+							
+							uslist.add(XOPORUSO);
+						}
+					}
+				} catch (Exception e) {
+					log.error(e.getLocalizedMessage());
+					// e.printStackTrace();
+					// continue;
+				}
+			}
+			lastCheckTime_alphavantage = System.currentTimeMillis();
+		} else
+			log.info("Do not visit alpha vantage website this time");
+		
+
+		// start to sort 4weeks change and 2weeks change
 		log.trace("today: " + day);
 		for (StockWeeklyRecord oneinst : swbyid) {
 			log.info(oneinst.getStockId() + " " + oneinst.getDay() + " close:" + oneinst.getClose() + " 4 week: "
 					+ oneinst.getWeek4change() + " 2 week: " + oneinst.getWeek2change());
 		}
 
+		for (StockWeeklyRecord oneinst : uslist) {
+			swbyid.add(oneinst);
+			log.info(oneinst.getStockId() + " " + oneinst.getDay() + " close:" + oneinst.getClose() + " 4 week: "
+					+ oneinst.getWeek4change() + " 2 week: " + oneinst.getWeek2change());
+		}
+		
 		// Sort in des order
 		Collections.sort(swbyid, new Comparator<StockWeeklyRecord>() {
 			public int compare(StockWeeklyRecord p1, StockWeeklyRecord p2) {
@@ -377,55 +497,20 @@ public class Application implements CommandLineRunner {
 					+ oneinst.getWeek2change());
 		}
 
-		// some symbol cannot be found at alpha vantage
-		// SZ url format
-		// https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=159915.SZ&apikey=TJI42OA10GGU4DXL
-		// SH url format
-		// https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=510300.SS&apikey=TJI42OA10GGU4DXL
-		// SH url format
-		// https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=USO&apikey=TJI42OA10GGU4DXL
-		String alphavantageurl = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=USO&apikey=TJI42OA10GGU4DXL";
-		try {
-			if (lastCheckTime_alphavantage == 0
-					|| (System.currentTimeMillis() > (lastCheckTime_alphavantage + 3600000))) {
-				avds = restTemplate.getForObject(alphavantageurl, AlphaVantageDaySeries.class);
-				lastCheckTime_alphavantage = System.currentTimeMillis();
-			}
-			else
-				log.info("Do not visit alpha vantage website this time");
-
-			log.info("alpha vantage daily series data: " + avds);
-			if (avds != null) {
-				AlphaVantageMetaValue avmv = avds.getMetaData();
-				log.info("alpha vantage metadata symbol: " + avmv.getSymbol());
-				log.info("alpha vantage metadata Information: " + avmv.getInformation());
-				log.info("alpha vantage metadata TimeZone: " + avmv.getTimeZone());
-				Map<String, AlphaVantageDayValue> avdv = avds.getDayValues();
-				log.info("alpha vantage map #1 value: " + avdv.get("2019-06-17").getClose());
-				Set<Entry<String, AlphaVantageDayValue>> entry2 = avdv.entrySet();
-				SortedMap<String, AlphaVantageDayValue> sortedMap = new TreeMap<String, AlphaVantageDayValue>();
-				for (Entry<String, AlphaVantageDayValue> temp : entry2) {
-					sortedMap.put(temp.getKey(), temp.getValue());
-				}
-				entry2 = sortedMap.entrySet();
-				String lastAlphaVantageRecord = "";
-				for (Entry<String, AlphaVantageDayValue> temp : entry2) {
-					lastAlphaVantageRecord = temp.getKey() + " " + temp.getValue().getClose();
-				}
-				log.info(lastAlphaVantageRecord);
-			}
-		} catch (Exception e) {
-			log.error(e.getLocalizedMessage());
-			// e.printStackTrace();
-			// continue;
-		}
-
 		log.info("Last Check Time:" + lastCheckTime);
 	};
 
 	private BigDecimal changeRate(StockWeeklyRecord item, StockWeeklyRecord itemMinus1) {
 		BigDecimal bd0 = itemMinus1.getClose();
 		BigDecimal bdnow = item.getClose();
+		BigDecimal week4diff = bdnow.subtract(bd0).divide(bd0, 4, RoundingMode.HALF_UP);
+
+		return week4diff;
+	}
+
+	private BigDecimal changeRateString(String item, String itemMinus1) {
+		BigDecimal bd0 = new BigDecimal(itemMinus1);
+		BigDecimal bdnow = new BigDecimal(item); 
 		BigDecimal week4diff = bdnow.subtract(bd0).divide(bd0, 4, RoundingMode.HALF_UP);
 
 		return week4diff;
@@ -606,6 +691,22 @@ public class Application implements CommandLineRunner {
 		Calendar cal2 = Calendar.getInstance();
 		cal2.setTime(date);
 		int week = cal2.get(Calendar.DAY_OF_MONTH);
+		return week;
+	}
+
+	private int getDayOfWeek(String input) {
+		String format = "yyyy-MM-dd";
+		SimpleDateFormat df = new SimpleDateFormat(format);
+		Date date = new Date();
+		try {
+			date = df.parse(input);
+		} catch (ParseException e) {
+			e.printStackTrace();
+		}
+
+		Calendar cal2 = Calendar.getInstance();
+		cal2.setTime(date);
+		int week = cal2.get(Calendar.DAY_OF_WEEK);
 		return week;
 	}
 

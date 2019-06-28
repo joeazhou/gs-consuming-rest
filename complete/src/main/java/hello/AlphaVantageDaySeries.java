@@ -25,4 +25,9 @@ public class AlphaVantageDaySeries {
 		return dayValues;
 	}
 
+	@Override
+	public String toString() {
+		return "AlphaVantageDaySeries [metaData=" + metaData.getSymbol() + ", dayValues#=" + dayValues.size() + "]";
+	}
+
 }
