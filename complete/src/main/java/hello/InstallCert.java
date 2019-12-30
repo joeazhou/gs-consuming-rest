@@ -50,7 +50,7 @@ import java.security.cert.X509Certificate;
  * with your trusted certificates.
  */
 public class InstallCert {
-
+/*
     public static void main(String[] args) throws Exception {
         String host;
         int port;
@@ -156,7 +156,7 @@ public class InstallCert {
                 ("Added certificate to keystore 'jssecacerts' using alias '"
                         + alias + "'");
     }
-
+*/
     private static final char[] HEXDIGITS = "0123456789abcdef".toCharArray();
 
     private static String toHexString(byte[] bytes) {
