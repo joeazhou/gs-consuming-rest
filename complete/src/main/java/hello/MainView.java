@@ -66,10 +66,10 @@ public class MainView extends VerticalLayout {
 				
 		// NumberRenderer to render numbers in general
 		grid.addColumn(TemplateRenderer.of("[[index]]")).setHeader("#").setWidth("5px");
-		grid.addColumn(Stock4WeekChange::getDay).setHeader("Date").setWidth("80px");
-		grid.addColumn(Stock4WeekChange::getStockId).setHeader("Stock").setWidth("50px");
-		grid.addColumn(Stock4WeekChange::getClose).setHeader("Close").setWidth("50px");
-		grid.addColumn(Stock4WeekChange::getWeek4change).setHeader("4Weeks").setWidth("50px"); 
+		grid.addColumn(Stock4WeekChange::getDay).setHeader("Date").setWidth("100px");
+		grid.addColumn(Stock4WeekChange::getStockId).setHeader("Stock").setWidth("70px");
+		grid.addColumn(Stock4WeekChange::getClose).setHeader("Close").setWidth("62px");
+		grid.addColumn(Stock4WeekChange::getWeek4change).setHeader("4Weeks").setWidth("65px"); 
 		grid.addColumn(TemplateRenderer.<Stock4WeekChange> of(
 		        "[[item.week4change]]%")
 //		        .withProperty("week4change", Stock4WeekChange -> Stock4WeekChange.getWeek4change()),
@@ -81,10 +81,10 @@ public class MainView extends VerticalLayout {
 		week2grid.setHeight("750px");
 
 		week2grid.addColumn(TemplateRenderer.of("[[index]]")).setHeader("#").setWidth("5px");
-		week2grid.addColumn(Stock2WeekChange::getDay).setHeader("Date").setWidth("80px");
-		week2grid.addColumn(Stock2WeekChange::getStockId).setHeader("Stock").setWidth("50px");
-		week2grid.addColumn(Stock2WeekChange::getClose).setHeader("Close").setWidth("50px");
-		week2grid.addColumn(Stock2WeekChange::getWeek2change).setHeader("2Weeks").setWidth("50px"); 
+		week2grid.addColumn(Stock2WeekChange::getDay).setHeader("Date").setWidth("100px");
+		week2grid.addColumn(Stock2WeekChange::getStockId).setHeader("Stock").setWidth("70px");
+		week2grid.addColumn(Stock2WeekChange::getClose).setHeader("Close").setWidth("62px");
+		week2grid.addColumn(Stock2WeekChange::getWeek2change).setHeader("2Weeks").setWidth("65px"); 
 		week2grid.addColumn(TemplateRenderer.<Stock2WeekChange> of(
 		        "[[item.week2change]]%")
 //		        .withProperty("week4change", Stock4WeekChange -> Stock4WeekChange.getWeek4change()),
