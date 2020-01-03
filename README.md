@@ -4,7 +4,7 @@ This is a fund picker project based on [Restful Web Service with Spring's RestTe
 
 ## Usage
 
-Check out this repository and run the project
+Check out this repository and run the project under complete folder
 ```
 mvn spring-boot:run
 ```
@@ -14,5 +14,6 @@ mvn clean package
 ```
 Deploy to the cloud foundry with
 ```
+cf login
 cf push
 ```
