@@ -1,7 +1,7 @@
 ---
 applications:
 - name: gs-consuming-rest
-  memory: 1024M
+  memory: 512M
   path: target/gs-consuming-rest-0.1.0.jar
   services:
   - mongo-service
